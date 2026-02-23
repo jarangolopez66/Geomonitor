@@ -414,17 +414,19 @@
       <!-- =========================================================
            BLOCK 15 — TAB: ADMIN (validación + borrar + export + subir capas + tablero)
            ========================================================= -->
-      <div id="admin" class="tab-content">
-        <div class="admin-section">
-          <h3>⚠️ Panel Administrativo</h3>
-          <p style="margin-bottom:1rem;">Acceso restringido. Ingresa la contraseña para ver opciones de administrador.</p>
+     <div id="admin" class="tab-content">
+  <div class="admin-section">
+    <h3>⚙️ Panel Administrativo</h3>
 
-          <div class="admin-password">
-            <input type="password" id="adminPassword" placeholder="Contraseña de admin">
-            <button class="btn-primary" onclick="validateAdmin()">Validar</button>
-          </div>
+    <p id="adminStatus" style="margin-bottom:1rem;">
+      Para administrar, inicia sesión con GitHub.
+    </p>
 
-          <div id="adminPanel" class="hidden">
+    <div id="adminPanel" class="hidden">
+      <!-- aquí va tu contenido admin real (subir capas, tablero, etc.) -->
+    </div>
+  </div>
+</div>
             <!-- ===== BLOCK 30 — ADMIN: SUBIR CAPA ZIP ===== -->
             <div style="background:white; padding:1rem; border-radius:5px; margin-top:1rem;">
               <h4>🗺️ Subir capa del barrio (ZIP)</h4>
@@ -437,7 +439,7 @@
               <div class="form-group">
                 <label>Categoría</label>
                 <select id="layerCategory">
-                  <option value="limites">Límites piloto</option>
+                  <option value="limites">Límites</option>
                   <option value="postes">Postes</option>
                   <option value="canales">Canales</option>
                   <option value="resaltos">Resaltos</option>
