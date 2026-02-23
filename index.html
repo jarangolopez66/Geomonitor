@@ -205,7 +205,7 @@
 
             <div class="card mt-4">
               <h3>🧭 Consejito rápido</h3>
-              <p class="muted">Entra a <b>Capas</b> y enciende “Límites piloto” para ver el área del piloto.</p>
+              <p class="muted">Entra a <b>Capas</b> y enciende “Límites” para ver el área del piloto.</p>
             </div>
           </div>
         </div>
@@ -785,62 +785,67 @@
        - Si la capa viene proyectada (no WGS84) te avisa
        ========================================================= */
     async function adminUploadLayerZip() {
-      try {
-        if (!isAdmin) {
-          showAlert('No tienes permisos de admin (revisa tu UID en el código).', 'error');
-          return;
-        }
-
-        const name = (document.getElementById('layerName').value || '').trim();
-        const category = document.getElementById('layerCategory').value;
-        const file = document.getElementById('layerZip').files[0];
-
-        if (!name || !file) {
-          showAlert('Falta nombre o archivo ZIP.', 'error');
-          return;
-        }
-
-        // 1) crear doc
-        const docRef = await db.collection('capas').add({
-          name,
-          category,
-          enabled: true,
-          url: '',
-          created_by: auth.currentUser.uid,
-          created_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // 2) subir a storage
-        const path = `capas/${docRef.id}/${Date.now()}_${file.name}`;
-        const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-
-        // 3) guardar url
-        await db.collection('capas').doc(docRef.id).update({ url });
-
-        showAlert('✅ Capa subida. Ahora ve a “Capas” y enciéndela.', 'success');
-
-        document.getElementById('layerName').value = '';
-        document.getElementById('layerZip').value = '';
-      } catch (e) {
-        showAlert('Error subiendo capa: ' + e.message, 'error');
-      }
+  try {
+    if (!isAdmin) {
+      showAlert('No tienes permisos de admin. Inicia con GitHub y agrega tu UID en ADMIN_UIDS.', 'error');
+      return;
     }
 
-    function loadLayersMeta() {
-      db.collection('capas')
-        .orderBy('created_at', 'desc')
-        .onSnapshot(snap => {
-          layersMeta = [];
-          snap.forEach(doc => {
-            const d = doc.data();
-            if (d.enabled === false) return;
-            layersMeta.push({ id: doc.id, ...d });
-          });
-          renderLayersUI();
-        });
+    const name = (document.getElementById('layerName').value || '').trim();
+    const category = document.getElementById('layerCategory').value;
+    const file = document.getElementById('layerZip').files[0];
+
+    if (!name || !file) {
+      showAlert('Falta nombre o archivo ZIP.', 'error');
+      return;
     }
+
+    // ✅ 1) Validar que el ZIP sea Shapefile válido ANTES de subir
+    const abLocal = await file.arrayBuffer();
+    let geojsonTest;
+    try {
+      geojsonTest = await shp(abLocal);
+    } catch (e) {
+      showAlert('Ese ZIP no parece un Shapefile válido. Asegura que tenga .shp/.shx/.dbf/.prj en la raíz del ZIP (sin carpeta).', 'error');
+      return;
+    }
+
+    // ✅ 2) Aviso si parece proyectado (por eso no se ve)
+    const g = Array.isArray(geojsonTest)
+      ? { type: 'FeatureCollection', features: geojsonTest.flatMap(x => x?.features || []) }
+      : geojsonTest;
+
+    const b0 = computeGeojsonBounds(g);
+    if (b0 && looksProjected(b0)) {
+      showAlert('⚠️ Tu capa parece estar en coordenadas proyectadas (metros). Exporta en WGS84 (EPSG:4326) desde ArcGIS Pro y vuelve a subir.', 'error');
+      return;
+    }
+
+    // ✅ 3) Subir ZIP a Storage
+    const path = `capas/${Date.now()}_${file.name}`;
+    const ref = storage.ref(path);
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+
+    // ✅ 4) Crear doc en Firestore YA con URL
+    await db.collection('capas').add({
+      name,
+      category,
+      enabled: true,
+      url,
+      created_by: auth.currentUser.uid,
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    showAlert('✅ Capa subida y publicada. Ve a “Capas” y enciéndela.', 'success');
+
+    document.getElementById('layerName').value = '';
+    document.getElementById('layerZip').value = '';
+
+  } catch (e) {
+    showAlert('Error subiendo capa: ' + e.message, 'error');
+  }
+}
 
     function renderLayersUI() {
       const el = document.getElementById('layersUI');
