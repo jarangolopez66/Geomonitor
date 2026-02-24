@@ -17,8 +17,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/1.0.4/leaflet-heat.js"></script>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/geohash/0.13.0/geohash.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdn.cloudflare.com/ajax/libs/geohash/0.13.0/geohash.min."></script>
+  <script src="https://cdn.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
   <!-- =========================================================
        BLOCK 02 — shpjs (lee ZIP shapefile en navegador)
@@ -431,7 +431,7 @@
       apiKey: "AIzaSyAWouuK0aTWCJxz3GbzVbhjudkI_2BcCZM",
       authDomain: "urb-vallejo.firebaseapp.com",
       projectId: "urb-vallejo",
-      storageBucket: "urb-vallejo.firebasestorage.app",
+      storageBucket: "urb-vallejo.appspot.com",
       messagingSenderId: "434569895105",
       appId: "1:434569895105:web:d960cf1c29d6311ce10840",
       measurementId: "G-W4E5306FSP"
@@ -671,7 +671,7 @@
       map.on('mousemove', function (e) {
         document.getElementById('currentLat').textContent = e.latlng.lat.toFixed(5);
         document.getElementById('currentLng').textContent = e.latlng.lng.toFixed(5);
-        document.getElementById('currentGeohash').textContent = geohash.encode(e.latlng.lat, e.latlng.lng, 6);
+        document.getElementById('currentGeohash').textContent = ghEncode(e.latlng.lat, e.latlng.lng, 6);
       });
 
       // (Opcional) muestra ubicación del usuario en azul pero NO cambia el centro
@@ -734,12 +734,12 @@
 
       if (elLat) elLat.value = lat.toFixed(5);
       if (elLng) elLng.value = lng.toFixed(5);
-      if (elGh)  elGh.value  = geohash.encode(lat, lng, 6);
+      if (elGh)  elGh.value  = ghEncode(lat, lng, 6);
 
       // Panel mapa
       document.getElementById('selectedLat').textContent = lat.toFixed(5);
       document.getElementById('selectedLng').textContent = lng.toFixed(5);
-      document.getElementById('selectedGeohash').textContent = geohash.encode(lat, lng, 6);
+      document.getElementById('selectedGeohash').textContent = ghEncode(lat, lng, 6);
     }
 
     /* =========================================================
@@ -783,7 +783,7 @@
           tipo_evento: type,               // robo/inundación/basura/manhole/otro
           tipo_otro: (type === 'otro' ? otherName : ''),
           ubicacion: new firebase.firestore.GeoPoint(lat, lng),
-          geohash: geohash.encode(lat, lng, 6),
+          geohash: ghEncode(lat, lng, 6),
           descripcion: description,
           foto_url: photoUrl,
           fecha_evento: datetime,
@@ -931,65 +931,57 @@
        BLOCK 60 — CAPAS ZIP (Admin sube / Usuarios on-off / Buscar)
        ========================================================= */
     async function adminUploadLayerZip() {
-      try {
-        if (!isAdmin) {
-          showAlert('No tienes permisos de admin.', 'error');
-          return;
-        }
-
-        const name = (document.getElementById('layerName').value || '').trim();
-        const category = document.getElementById('layerCategory').value;
-        const file = document.getElementById('layerZip').files[0];
-
-        if (!name || !file) {
-          showAlert('Falta nombre o archivo ZIP.', 'error');
-          return;
-        }
-
-        // Validar ZIP antes de subir
-        const abLocal = await file.arrayBuffer();
-        let geojsonTest;
-        try {
-          geojsonTest = await shp(abLocal);
-        } catch (e) {
-          showAlert('Ese ZIP no parece un Shapefile válido (.shp/.shx/.dbf/.prj en la raíz).', 'error');
-          return;
-        }
-
-        // Detectar si está proyectado
-        const g = Array.isArray(geojsonTest)
-          ? { type: 'FeatureCollection', features: geojsonTest.flatMap(x => x?.features || []) }
-          : geojsonTest;
-
-        const b0 = computeGeojsonBounds(g);
-        if (b0 && looksProjected(b0)) {
-          showAlert('⚠️ Parece proyectado (metros). Exporta la capa en WGS84 (EPSG:4326) y vuelve a subir.', 'error');
-          return;
-        }
-
-        // Subir a Storage
-        const path = `capas/${Date.now()}_${file.name}`;
-        const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-
-        // Crear doc ya con URL
-        await db.collection('capas').add({
-          name,
-          category,
-          enabled: true,
-          url,
-          created_by: auth.currentUser.uid,
-          created_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        showAlert('✅ Capa subida. Ve a “Capas” y enciéndela.', 'success');
-        document.getElementById('layerName').value = '';
-        document.getElementById('layerZip').value = '';
-      } catch (e) {
-        showAlert('Error subiendo capa: ' + e.message, 'error');
-      }
+  try {
+    if (!isAdmin) {
+      showAlert('No tienes permisos de admin.', 'error');
+      return;
     }
+
+    const name = (document.getElementById('layerName').value || '').trim();
+    const category = document.getElementById('layerCategory').value;
+    const file = document.getElementById('layerZip').files[0];
+
+    if (!name || !file) {
+      showAlert('Falta nombre o archivo ZIP.', 'error');
+      return;
+    }
+
+    // 1) Validar ZIP (debe ser shapefile válido)
+    const abLocal = await file.arrayBuffer();
+    try {
+      await shp(abLocal);
+    } catch (e) {
+      showAlert('ZIP inválido. Debe traer .shp/.shx/.dbf/.prj en la raíz (sin carpetas).', 'error');
+      return;
+    }
+
+    showAlert('Subiendo ZIP a Firebase Storage...', 'info');
+
+    // 2) Subir a Storage
+    const path = `capas/${Date.now()}_${file.name}`;
+    const ref = storage.ref(path);
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+
+    // 3) Guardar doc en Firestore
+    await db.collection('capas').add({
+      name,
+      category,
+      enabled: true,
+      url,
+      created_by: auth.currentUser?.uid || '',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    showAlert('✅ Capa subida. Ve a “Capas” y enciéndela.', 'success');
+    document.getElementById('layerName').value = '';
+    document.getElementById('layerZip').value = '';
+
+  } catch (e) {
+    console.error('UPLOAD ERROR:', e);
+    showAlert(`Error subiendo capa: ${e.code || ''} ${e.message || e}`, 'error');
+  }
+}
 
     function loadLayersMeta() {
       db.collection('capas')
@@ -1314,6 +1306,43 @@
         .replaceAll('"','&quot;')
         .replaceAll("'","&#039;");
     }
+
+    // ==============================
+// GEOHASH (sin depender de cdn)
+// ==============================
+function ghEncode(lat, lon, precision = 6) {
+  // si la librería sí existe, úsala
+  if (window.geohash?.encode) return window.ghEncode(lat, lon, precision);
+  if (window.Geohash?.encode) return window.ghEncode(lat, lon, precision);
+
+  // fallback: encoder local
+  const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+  let idx = 0, bit = 0, evenBit = true;
+  let geohash = '';
+
+  let latMin = -90.0, latMax = 90.0;
+  let lonMin = -180.0, lonMax = 180.0;
+
+  while (geohash.length < precision) {
+    if (evenBit) {
+      const lonMid = (lonMin + lonMax) / 2;
+      if (lon >= lonMid) { idx = (idx << 1) + 1; lonMin = lonMid; }
+      else { idx = (idx << 1) + 0; lonMax = lonMid; }
+    } else {
+      const latMid = (latMin + latMax) / 2;
+      if (lat >= latMid) { idx = (idx << 1) + 1; latMin = latMid; }
+      else { idx = (idx << 1) + 0; latMax = latMid; }
+    }
+    evenBit = !evenBit;
+
+    if (++bit === 5) {
+      geohash += base32.charAt(idx);
+      bit = 0;
+      idx = 0;
+    }
+  }
+  return geohash;
+}    
   </script>
 </body>
 </html>
