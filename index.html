@@ -106,6 +106,7 @@
       display:inline-block; padding:.2rem .6rem; border-radius:999px;
       background:#f3f3f3; color:#444; font-weight:1000; font-size:.8rem;
     }
+    .pill.bad { background:#ffe3e3; color:#b00020; }
   </style>
 </head>
 
@@ -253,7 +254,7 @@
       <div id="capas" class="tab-content">
         <div class="card">
           <h3>🧭 Capas del barrio</h3>
-          <p class="muted tiny" style="margin-bottom:.75rem;">Las capas se listan automáticamente. Puedes prender/apagar.</p>
+          <p class="muted tiny" style="margin-bottom:.75rem;">Las capas se listan automáticamente. Si una sale <b>SIN URL</b>, debes repararla en Admin.</p>
           <div id="layersUI"><p class="muted">Cargando capas...</p></div>
         </div>
       </div>
@@ -291,6 +292,7 @@
           <p id="adminStatus" class="muted">Cargando permisos…</p>
 
           <div id="adminPanel" class="hidden">
+            <!-- Subir capa nueva -->
             <div class="card" style="border:2px dashed #ffd36a;">
               <h3>🗺️ Subir capa (ZIP Shapefile)</h3>
 
@@ -323,6 +325,27 @@
               <button class="btn-success" style="width:100%;" onclick="adminUploadLayerZip()">✅ Subir capa</button>
             </div>
 
+            <!-- Reparar capas sin URL -->
+            <div class="card mt-4" style="border:2px dashed #ffd36a;">
+              <h3>🧩 Reparar capa SIN URL</h3>
+              <p class="muted tiny" style="margin-bottom:.75rem;">
+                Tus capas en Firestore tienen <code>url: ""</code>. Aquí seleccionas una y subes el ZIP para que se le guarde el URL y ya se pueda prender/apagar.
+              </p>
+
+              <div class="form-group">
+                <label>Selecciona capa con url vacío</label>
+                <select id="repairLayerSelect"></select>
+              </div>
+
+              <div class="form-group">
+                <label>ZIP a vincular *</label>
+                <input id="repairLayerZip" type="file" accept=".zip">
+              </div>
+
+              <button class="btn-primary" style="width:100%;" onclick="adminRepairLayerUrl()">🔧 Subir ZIP y reparar URL</button>
+            </div>
+
+            <!-- Tablero -->
             <div class="card mt-4" style="border:2px dashed #ffd36a;">
               <h3>📌 Editar tablero</h3>
               <div class="form-group">
@@ -343,9 +366,9 @@
   </div>
 
   <script>
-    /* =========================================================
-       GEOHASH (fallback local)
-       ========================================================= */
+    /* =========================
+       GEOHASH fallback local
+       ========================= */
     function ghEncode(lat, lon, precision = 6) {
       const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
       let idx = 0, bit = 0, evenBit = true;
@@ -375,9 +398,9 @@
       return out;
     }
 
-    /* =========================================================
-       FIREBASE INIT
-       ========================================================= */
+    /* =========================
+       Firebase init
+       ========================= */
     const firebaseConfig = {
       apiKey: "AIzaSyAWouuK0aTWCJxz3GbzVbhjudkI_2BcCZM",
       authDomain: "urb-vallejo.firebaseapp.com",
@@ -393,9 +416,9 @@
     const storage = firebase.storage();
     const auth = firebase.auth();
 
-    /* =========================================================
-       ADMIN UID (sin contraseña)
-       ========================================================= */
+    /* =========================
+       Admin UID
+       ========================= */
     const ADMIN_UIDS = ["1avKVpGxCAMO1FU734Md4B3b8aH3"];
     let isAdmin = false;
 
@@ -403,28 +426,25 @@
       return !!user && !user.isAnonymous && ADMIN_UIDS.includes(user.uid);
     }
 
-    /* =========================================================
-       ESTADO GLOBAL
-       ========================================================= */
+    /* =========================
+       Estado global
+       ========================= */
     let currentUser = null;
     let listenersStarted = false;
 
-    // mapa
     let map = null;
     const DEFAULT_CENTER = { lat: 8.7520, lng: -75.8890 };
     const DEFAULT_ZOOM = 14;
 
-    // pin seleccionado
     let selectedMarker = null;
 
-    // eventos
     let events = [];
     let eventMarkers = [];
     let heatLayer = null;
 
     // capas
-    let layersMeta = [];
-    let leafletLayers = {}; // id -> L.geoJSON
+    let layersMeta = [];           // incluye con y sin URL (para reparar)
+    let leafletLayers = {};        // id -> L.geoJSON
 
     // charts
     let charts = {};
@@ -457,10 +477,7 @@
       document.getElementById(tabName)?.classList.add('active');
       btnEl?.classList.add('active');
 
-      if (tabName === 'dashboard') {
-        updateCharts();
-        updateAnalysis();
-      }
+      if (tabName === 'dashboard') { updateCharts(); updateAnalysis(); }
       if (tabName === 'mapa') setTimeout(() => map && map.invalidateSize(), 150);
     }
 
@@ -503,9 +520,9 @@
       panel.classList.remove('hidden');
     }
 
-    /* =========================================================
-       AUTH
-       ========================================================= */
+    /* =========================
+       Auth
+       ========================= */
     async function ensureAnonymous() {
       if (auth.currentUser) return auth.currentUser;
       await auth.signInAnonymously();
@@ -552,9 +569,9 @@
       auth.signOut().then(() => location.reload());
     }
 
-    /* =========================================================
-       REALTIME LISTENERS
-       ========================================================= */
+    /* =========================
+       Realtime listeners
+       ========================= */
     function startRealtimeListeners() {
       if (listenersStarted) return;
       listenersStarted = true;
@@ -602,7 +619,7 @@
     }
 
     function startLayersListener() {
-      // Nota: aquí solo listamos capas que ya tienen url
+      // IMPORTANT: Traemos TODAS (con url y sin url) para poder reparar
       db.collection('capas')
         .orderBy('created_at', 'desc')
         .onSnapshot(
@@ -611,10 +628,11 @@
             snap.forEach(doc => {
               const d = doc.data();
               if (d.enabled === false) return;
-              if (!d.url || String(d.url).trim() === '') return;
               layersMeta.push({ id: doc.id, ...d });
             });
+
             renderLayersUI();
+            renderRepairDropdown();
           },
           (err) => {
             console.error('CAPAS listener error:', err);
@@ -644,9 +662,9 @@
         );
     }
 
-    /* =========================================================
-       MAPA + PIN
-       ========================================================= */
+    /* =========================
+       Mapa + Pin
+       ========================= */
     function initializeMap() {
       map = L.map('map').setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], DEFAULT_ZOOM);
 
@@ -709,9 +727,9 @@
       document.getElementById('selectedGeohash').textContent = ghEncode(lat, lng, 6);
     }
 
-    /* =========================================================
-       EVENTOS
-       ========================================================= */
+    /* =========================
+       Eventos
+       ========================= */
     function toggleOtherTypeUI() {
       const type = document.getElementById('eventType').value;
       const g = document.getElementById('otherTypeGroup');
@@ -854,40 +872,41 @@
       heatLayer = L.heatLayer(heatData, { radius: 28, blur: 16, maxZoom: 17 }).addTo(map);
     }
 
-    /* =========================================================
-       CAPAS (LISTA + TOGGLE) — MEJORAS pedidas
-       ========================================================= */
+    /* =========================
+       CAPAS: lista + toggle
+       ========================= */
     function renderLayersUI() {
       const el = document.getElementById('layersUI');
       if (!el) return;
 
       if (!layersMeta.length) {
-        el.innerHTML = `
-          <p class="muted" style="font-weight:900;">
-            No hay capas publicadas todavía (colección <code>capas</code> vacía o sin <code>url</code>).
-          </p>
-        `;
+        el.innerHTML = '<p class="muted">No hay capas.</p>';
         return;
       }
 
       el.innerHTML = layersMeta.map(m => {
+        const hasUrl = !!(m.url && String(m.url).trim());
         const checked = leafletLayers[m.id] ? 'checked' : '';
+        const disabled = hasUrl ? '' : 'disabled';
+
+        const status = hasUrl
+          ? '<span class="pill">OK</span>'
+          : '<span class="pill bad">SIN URL</span>';
+
         const badge = (m.category === 'limites') ? `<span class="pill" style="margin-left:8px;">Piloto</span>` : '';
 
         return `
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border:1px solid #eee; border-radius:12px; margin-bottom:10px;">
             <div style="min-width:0;">
               <div style="font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${escapeHtml(m.name || 'Capa')}${badge}
+                ${escapeHtml(m.name || 'Capa')} ${status}${badge}
               </div>
               <div class="muted tiny">${escapeHtml(m.category || '')}</div>
-              <div class="tiny" style="margin-top:6px;">
-                <a href="${m.url}" target="_blank" style="color:#667eea; font-weight:1000;">Abrir ZIP</a>
-              </div>
+              ${hasUrl ? `<div class="tiny" style="margin-top:6px;"><a href="${m.url}" target="_blank" style="color:#667eea; font-weight:1000;">Abrir ZIP</a></div>` : ''}
             </div>
 
             <label style="display:flex; gap:8px; align-items:center; font-weight:1000;">
-              <input type="checkbox" ${checked} onchange="toggleLayerZip('${m.id}', this.checked)">
+              <input type="checkbox" ${checked} ${disabled} onchange="toggleLayerZip('${m.id}', this.checked)">
               <span>Ver</span>
             </label>
           </div>
@@ -912,23 +931,17 @@
       return styles[meta.category] || styles.otro;
     }
 
-    // ✅ Mejoras pedidas:
-    // - normalizar boolean/string
-    // - errores más explícitos (HTTP status)
-    // - centrar/zoom a la capa al activar
-    // - asegurar estado consistente en leafletLayers y UI
+    // Mejoras pedidas: normalizar boolean/string, errores claros, fitBounds y robustez
     async function toggleLayerZip(layerId, on) {
-      // normalizar on: puede venir true/false, "true"/"false", 1/0
       const onNorm = (on === true || on === 'true' || on === 1 || on === '1');
 
       const meta = layersMeta.find(x => x.id === layerId);
       if (!meta) {
-        showAlert('No encontré metadata de la capa (ID inválido).', 'error');
+        showAlert('No encontré metadata de la capa.', 'error');
         return;
       }
 
       if (!onNorm) {
-        // apagar
         if (leafletLayers[layerId]) {
           map.removeLayer(leafletLayers[layerId]);
           delete leafletLayers[layerId];
@@ -936,24 +949,26 @@
         return;
       }
 
-      // encender
       try {
+        if (!meta.url || !String(meta.url).trim()) {
+          showAlert('Esta capa NO tiene URL. Ve a Admin → Reparar capa SIN URL.', 'error');
+          renderLayersUI();
+          return;
+        }
+
         showAlert(`Cargando capa: ${meta.name || 'Capa'}…`, 'info');
 
-        // 1) Descargar ZIP
         const res = await fetch(meta.url, { cache: 'no-store' });
         if (!res.ok) {
           throw new Error(`No pude descargar ZIP. HTTP ${res.status} (${res.statusText || 'sin texto'})`);
         }
         const ab = await res.arrayBuffer();
 
-        // 2) Convertir ZIP->GeoJSON
         const geojsonRaw = await shp(ab);
         const geojson = Array.isArray(geojsonRaw)
           ? { type:'FeatureCollection', features: geojsonRaw.flatMap(g => (g && g.features) ? g.features : []) }
           : geojsonRaw;
 
-        // 3) Crear layer Leaflet
         const style = getLayerStyle(meta);
 
         const layer = L.geoJSON(geojson, {
@@ -967,17 +982,16 @@
           }
         });
 
-        // Si ya existía, bórrala para no duplicar
+        // evita duplicación
         if (leafletLayers[layerId]) {
           map.removeLayer(leafletLayers[layerId]);
           delete leafletLayers[layerId];
         }
 
-        // 4) Agregar al mapa y guardar estado
         layer.addTo(map);
         leafletLayers[layerId] = layer;
 
-        // 5) Centrar a la capa
+        // centrar capa
         try {
           const b = layer.getBounds();
           if (b && b.isValid()) map.fitBounds(b.pad(0.08));
@@ -987,16 +1001,13 @@
       } catch (e) {
         console.error('toggleLayerZip error:', e);
         showAlert('No pude cargar la capa: ' + (e.message || e), 'error');
-
-        // forzar UI consistente: desmarcar (re-render)
-        // (mantiene lógica general, solo robustez)
         renderLayersUI();
       }
     }
 
-    /* =========================================================
-       ADMIN: subir capa
-       ========================================================= */
+    /* =========================
+       Admin: subir capa nueva
+       ========================= */
     async function adminUploadLayerZip() {
       try {
         if (!isAdmin) return showAlert('No eres admin.', 'error');
@@ -1017,6 +1028,7 @@
         await ref.put(file);
         const url = await ref.getDownloadURL();
 
+        // IMPORTANT: solo crea doc cuando ya hay url real
         await db.collection('capas').add({
           name, category, enabled:true, url,
           created_by: auth.currentUser.uid,
@@ -1032,9 +1044,63 @@
       }
     }
 
-    /* =========================================================
-       TABLERO
-       ========================================================= */
+    /* =========================
+       Admin: reparar url vacío
+       ========================= */
+    function renderRepairDropdown() {
+      const sel = document.getElementById('repairLayerSelect');
+      if (!sel) return;
+
+      const broken = layersMeta.filter(m => !m.url || String(m.url).trim() === '');
+      if (!broken.length) {
+        sel.innerHTML = `<option value="">No hay capas sin URL ✅</option>`;
+        sel.disabled = true;
+        return;
+      }
+
+      sel.disabled = false;
+      sel.innerHTML = broken.map(m => `<option value="${m.id}">${escapeHtml(m.name || m.id)} — (${escapeHtml(m.category || '')})</option>`).join('');
+    }
+
+    async function adminRepairLayerUrl() {
+      try {
+        if (!isAdmin) return showAlert('No eres admin.', 'error');
+
+        const docId = document.getElementById('repairLayerSelect').value;
+        const file = document.getElementById('repairLayerZip').files[0];
+
+        if (!docId) return showAlert('Selecciona una capa sin URL.', 'error');
+        if (!file) return showAlert('Selecciona el ZIP para reparar.', 'error');
+
+        // validar ZIP shapefile
+        const abLocal = await file.arrayBuffer();
+        try { await shp(abLocal); }
+        catch { return showAlert('ZIP inválido: .shp/.shx/.dbf/.prj en la raíz.', 'error'); }
+
+        showAlert('Reparando… subiendo ZIP a Storage…', 'info');
+
+        const path = `capas/${Date.now()}_${file.name}`;
+        const ref = storage.ref(path);
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+
+        await db.collection('capas').doc(docId).set({
+          url,
+          repaired_at: firebase.firestore.FieldValue.serverTimestamp(),
+          repaired_by: auth.currentUser.uid
+        }, { merge:true });
+
+        showAlert('✅ URL reparada. Ve a “Capas” y enciéndela.', 'success');
+        document.getElementById('repairLayerZip').value = '';
+      } catch (e) {
+        console.error('REPAIR ERROR:', e);
+        showAlert(`Error reparando: ${e.code || ''} ${e.message || e}`, 'error');
+      }
+    }
+
+    /* =========================
+       Tablero
+       ========================= */
     function renderBoardPublic(d) {
       const el = document.getElementById('boardPublic');
       if (!el) return;
@@ -1067,9 +1133,9 @@
       }
     }
 
-    /* =========================================================
-       DASHBOARD
-       ========================================================= */
+    /* =========================
+       Charts / Dashboard
+       ========================= */
     function initCharts() {
       const ctx1 = document.getElementById('chartEventTypes')?.getContext('2d');
       const ctx2 = document.getElementById('chartEventsByDay')?.getContext('2d');
@@ -1125,9 +1191,9 @@
       el.innerHTML = `<p class="muted">Eventos totales: <b>${events.length}</b></p>`;
     }
 
-    /* =========================================================
-       LISTENERS (inputs)
-       ========================================================= */
+    /* =========================
+       Listeners (inputs)
+       ========================= */
     function setupEventListeners() {
       document.getElementById('eventPhoto')?.addEventListener('change', (e) => {
         document.getElementById('fileName').textContent = e.target.files[0]?.name || '';
