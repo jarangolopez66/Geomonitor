@@ -1,29 +1,36 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <!-- =========================================================
+       BLOCK 00 — META + TÍTULO
+       ========================================================= -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoMonitor Vallejo</title>
 
-  <!-- Leaflet -->
+  <!-- =========================================================
+       BLOCK 01 — LIBRERÍAS (Leaflet + Heat + Chart)
+       ========================================================= -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/1.0.4/leaflet-heat.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/1.0.4/leaflet-heat.js"></script>
-
-  <!-- ✅ CDN CORRECTOS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/geohash/0.13.0/geohash.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
-  <!-- shpjs -->
+  <!-- shpjs (ZIP shapefile -> GeoJSON) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shpjs/6.1.0/shp.min.js"></script>
 
-  <!-- Firebase compat -->
+  <!-- =========================================================
+       BLOCK 02 — FIREBASE (COMPAT)
+       ========================================================= -->
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth-compat.js"></script>
 
+  <!-- =========================================================
+       BLOCK 03 — ESTILOS
+       ========================================================= -->
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu',sans-serif; background:#f5f5f5; color:#333; }
@@ -34,17 +41,19 @@
     .header-controls { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
     .user-info { display:flex; align-items:center; gap:.5rem; font-size:.9rem; }
 
-    button { padding:.6rem 1.1rem; border:none; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:800; transition:all .15s ease; }
+    button { padding:.6rem 1.1rem; border:none; border-radius:10px; cursor:pointer; font-size:.9rem; font-weight:900; transition:all .15s ease; }
     .btn-primary { background:#fff; color:#667eea; }
     .btn-primary:hover { transform:translateY(-1px); box-shadow:0 5px 15px rgba(0,0,0,0.2); }
     .btn-secondary { background:rgba(255,255,255,0.18); color:#fff; border:2px solid rgba(255,255,255,0.85); }
     .btn-secondary:hover { background:#fff; color:#667eea; }
     .btn-success { background:#51cf66; color:#fff; }
     .btn-success:hover { background:#40c057; }
+    .btn-danger { background:#ff6b6b; color:#fff; }
+    .btn-danger:hover { background:#ff5252; }
 
     .container { max-width:1400px; margin:0 auto; padding:1rem; }
     .tabs { display:flex; gap:.5rem; margin-bottom:1rem; flex-wrap:wrap; }
-    .tab-btn { padding:.8rem 1.25rem; border:2px solid #ddd; background:#fff; border-radius:8px; cursor:pointer; font-weight:900; }
+    .tab-btn { padding:.8rem 1.25rem; border:2px solid #ddd; background:#fff; border-radius:10px; cursor:pointer; font-weight:1000; }
     .tab-btn.active { background:#667eea; color:#fff; border-color:#667eea; }
     .tab-content { display:none; }
     .tab-content.active { display:block; }
@@ -54,24 +63,46 @@
 
     .grid-2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:1rem; }
     .grid-3 { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:1rem; }
-
     .card { background:#fff; border-radius:12px; padding:1.2rem; box-shadow:0 2px 12px rgba(0,0,0,0.10); }
     .card h3 { margin-bottom:1rem; color:#667eea; }
 
     .form-group { margin-bottom:1rem; }
-    .form-group label { display:block; margin-bottom:.5rem; font-weight:900; }
+    .form-group label { display:block; margin-bottom:.5rem; font-weight:1000; }
     .form-group input, .form-group select, .form-group textarea {
       width:100%; padding:.8rem; border:1px solid #ddd; border-radius:10px; font-size:1rem; font-family:inherit;
     }
     .form-group textarea { min-height:90px; resize:vertical; }
 
     .muted { color:#777; font-size:.92rem; }
+    .tiny { font-size:.85rem; }
     .mt-4 { margin-top:1rem; }
     .hidden { display:none !important; }
 
+    .inline-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+
     .stat-card { text-align:center; padding:.75rem; border:1px solid #f0f0f0; border-radius:12px; }
     .stat-number { font-size:2rem; font-weight:1000; color:#667eea; }
-    .stat-label { color:#999; font-size:.8rem; text-transform:uppercase; letter-spacing:1px; font-weight:900; }
+    .stat-label { color:#999; font-size:.8rem; text-transform:uppercase; letter-spacing:1px; font-weight:1000; }
+
+    .event-item { background:#fff; border-left:5px solid #667eea; padding:1rem; margin-bottom:1rem; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+    .event-item.robo { border-left-color:#ff6b6b; }
+    .event-item.inundación { border-left-color:#4ecdc4; }
+    .event-item.basura { border-left-color:#ffd700; }
+    .event-item.manhole { border-left-color:#9b59b6; }
+    .event-item.otro { border-left-color:#6c757d; }
+    .event-header { display:flex; justify-content:space-between; align-items:start; gap:.5rem; flex-wrap:wrap; }
+    .event-type { display:inline-block; padding:.28rem .75rem; border-radius:20px; font-size:.78rem; font-weight:1000; color:#fff; }
+    .event-type.robo { background:#ff6b6b; }
+    .event-type.inundación { background:#4ecdc4; }
+    .event-type.basura { background:#ffd700; color:#333; }
+    .event-type.manhole { background:#9b59b6; }
+    .event-type.otro { background:#6c757d; }
+    .event-time { font-size:.85rem; color:#999; }
+    .event-description { margin:.5rem 0; color:#555; }
+    .event-meta { display:flex; gap:1rem; font-size:.85rem; color:#999; flex-wrap:wrap; }
+
+    .admin-section { background:#fff3cd; border:2px solid #ffc107; border-radius:12px; padding:1.2rem; }
+    .admin-section h3 { color:#856404; margin-bottom:.5rem; }
 
     .alert { padding:1rem; margin-bottom:1rem; border-radius:10px; display:none; }
     .alert.show { display:block; }
@@ -79,13 +110,15 @@
     .alert-error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
     .alert-info { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
 
-    .inline-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem; }
-    .tiny { font-size:.85rem; }
+    .pill {
+      display:inline-block; padding:.2rem .6rem; border-radius:999px;
+      background:#f3f3f3; color:#444; font-weight:1000; font-size:.8rem;
+    }
   </style>
 </head>
 
 <body>
-  <!-- Login fallback -->
+  <!-- LOGIN FALLBACK (si falla modo público) -->
   <div id="loginPage" class="hidden" style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
     <div style="background:#fff; padding:2.3rem; border-radius:14px; width:min(520px,92vw); box-shadow:0 10px 40px rgba(0,0,0,.25); text-align:center;">
       <h1 style="color:#667eea; margin-bottom:.5rem;">🗺️ GeoMonitor</h1>
@@ -120,6 +153,7 @@
 
       <div id="alert" class="alert"></div>
 
+      <!-- MAPA -->
       <div id="mapa" class="tab-content active">
         <div class="grid-2">
           <div>
@@ -132,6 +166,7 @@
               <p class="muted mt-4"><b>PIN seleccionado:</b><br>
                 Lat: <span id="selectedLat">-</span> — Lng: <span id="selectedLng">-</span> — Geohash: <span id="selectedGeohash">-</span>
               </p>
+              <p class="muted tiny mt-4">Tip: clic en el mapa para poner el pin. Puedes arrastrarlo para ajustar.</p>
             </div>
           </div>
 
@@ -155,6 +190,7 @@
         </div>
       </div>
 
+      <!-- REGISTRAR -->
       <div id="registro" class="tab-content">
         <div class="card">
           <h3>📍 Registrar Nuevo Evento</h3>
@@ -163,6 +199,10 @@
             <button class="btn-secondary" onclick="goPickOnMap()">🗺️ Poner PIN en mapa</button>
             <button class="btn-secondary" onclick="useMyLocation()">📍 Usar mi ubicación</button>
           </div>
+
+          <p class="muted tiny" style="margin-bottom:1rem;">
+            Si no sabes coordenadas: usa el PIN (clic en el mapa) o “mi ubicación”.
+          </p>
 
           <div class="form-group">
             <label>Tipo *</label>
@@ -199,7 +239,7 @@
 
           <div class="form-group">
             <label>Descripción *</label>
-            <textarea id="eventDescription" required></textarea>
+            <textarea id="eventDescription" placeholder="Describe lo ocurrido (referencias: calle, casa, esquina...)" required></textarea>
           </div>
 
           <div class="form-group">
@@ -207,17 +247,26 @@
             <input type="datetime-local" id="eventDateTime" required>
           </div>
 
+          <div class="form-group">
+            <label>Foto (opcional)</label>
+            <input type="file" id="eventPhoto" accept="image/*">
+            <div id="fileName" class="muted tiny"></div>
+          </div>
+
           <button class="btn-success" style="width:100%; padding:1rem;" onclick="registerEvent()">✅ Registrar evento</button>
         </div>
       </div>
 
+      <!-- CAPAS -->
       <div id="capas" class="tab-content">
         <div class="card">
           <h3>🧭 Capas del barrio</h3>
+          <p class="muted tiny" style="margin-bottom:.75rem;">Aquí aparecen automáticamente las capas subidas por el admin. Puedes prender/apagar.</p>
           <div id="layersUI"><p class="muted">Cargando capas...</p></div>
         </div>
       </div>
 
+      <!-- DASHBOARD -->
       <div id="dashboard" class="tab-content">
         <div class="grid-3">
           <div class="card"><h3>📊 Por tipo</h3><canvas id="chartEventTypes"></canvas></div>
@@ -230,13 +279,20 @@
         </div>
       </div>
 
+      <!-- EVENTOS -->
       <div id="eventos" class="tab-content">
         <div class="card">
           <h3>📋 Historial</h3>
-          <div id="eventsList"><p class="muted">Cargando eventos…</p></div>
+          <div style="margin-bottom:1rem;">
+            <input type="text" id="searchEvents" placeholder="🔍 Buscar eventos..." style="width:100%; padding:.8rem; border:1px solid #ddd; border-radius:10px;">
+          </div>
+          <div id="eventsList" style="max-height:650px; overflow-y:auto;">
+            <p class="muted">Cargando eventos…</p>
+          </div>
         </div>
       </div>
 
+      <!-- ADMIN -->
       <div id="admin" class="tab-content">
         <div class="admin-section">
           <h3>⚙️ Panel Administrativo</h3>
@@ -248,7 +304,7 @@
 
               <div class="form-group">
                 <label>Nombre *</label>
-                <input id="layerName" type="text" placeholder="Ej: Límites, Postes...">
+                <input id="layerName" type="text" placeholder="Ej: Límites, Postes, Canales, Calles">
               </div>
 
               <div class="form-group">
@@ -257,6 +313,10 @@
                   <option value="limites">Límites</option>
                   <option value="postes">Postes</option>
                   <option value="canales">Canales</option>
+                  <option value="resaltos">Resaltos</option>
+                  <option value="comercio">Comercio</option>
+                  <option value="direcciones">Direcciones</option>
+                  <option value="arboles">Árboles</option>
                   <option value="calles">Calles</option>
                   <option value="otro">Otro</option>
                 </select>
@@ -265,6 +325,7 @@
               <div class="form-group">
                 <label>Archivo ZIP *</label>
                 <input id="layerZip" type="file" accept=".zip">
+                <p class="muted tiny">ZIP con <b>.shp/.shx/.dbf/.prj</b> en la raíz. Exporta en WGS84 (EPSG:4326).</p>
               </div>
 
               <button class="btn-success" style="width:100%;" onclick="adminUploadLayerZip()">✅ Subir capa</button>
@@ -274,11 +335,11 @@
               <h3>📌 Editar tablero</h3>
               <div class="form-group">
                 <label>Días recolección de basura</label>
-                <input id="trashDays" type="text">
+                <input id="trashDays" type="text" placeholder="Ej: Lunes, Miércoles y Viernes">
               </div>
               <div class="form-group">
                 <label>Notas</label>
-                <textarea id="boardNotes"></textarea>
+                <textarea id="boardNotes" placeholder="Ej: Sacar basura desde 6:00 pm…"></textarea>
               </div>
               <button class="btn-primary" style="width:100%;" onclick="adminSaveBoard()">💾 Guardar tablero</button>
             </div>
@@ -290,44 +351,46 @@
   </div>
 
   <script>
-    // ==============================
-    // GEOHASH (arreglado + fallback)
-    // ==============================
+    /* =========================================================
+       BLOCK A — GEOHASH (fallback local)
+       ========================================================= */
     function ghEncode(lat, lon, precision = 6) {
+      // si existiera alguna librería (por si luego la agregas), úsala:
       if (window.geohash?.encode) return window.geohash.encode(lat, lon, precision);
       if (window.Geohash?.encode) return window.Geohash.encode(lat, lon, precision);
 
+      // fallback local
       const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
       let idx = 0, bit = 0, evenBit = true;
-      let geohash = '';
+      let out = '';
 
       let latMin = -90.0, latMax = 90.0;
       let lonMin = -180.0, lonMax = 180.0;
 
-      while (geohash.length < precision) {
+      while (out.length < precision) {
         if (evenBit) {
           const lonMid = (lonMin + lonMax) / 2;
           if (lon >= lonMid) { idx = (idx << 1) + 1; lonMin = lonMid; }
-          else { idx = (idx << 1) + 0; lonMax = lonMid; }
+          else { idx = (idx << 1); lonMax = lonMid; }
         } else {
           const latMid = (latMin + latMax) / 2;
           if (lat >= latMid) { idx = (idx << 1) + 1; latMin = latMid; }
-          else { idx = (idx << 1) + 0; latMax = latMid; }
+          else { idx = (idx << 1); latMax = latMid; }
         }
         evenBit = !evenBit;
 
         if (++bit === 5) {
-          geohash += base32.charAt(idx);
+          out += base32.charAt(idx);
           bit = 0;
           idx = 0;
         }
       }
-      return geohash;
+      return out;
     }
 
-    // ==============================
-    // Firebase init
-    // ==============================
+    /* =========================================================
+       BLOCK B — FIREBASE INIT
+       ========================================================= */
     const firebaseConfig = {
       apiKey: "AIzaSyAWouuK0aTWCJxz3GbzVbhjudkI_2BcCZM",
       authDomain: "urb-vallejo.firebaseapp.com",
@@ -343,41 +406,63 @@
     const storage = firebase.storage();
     const auth = firebase.auth();
 
-    // Admin UID
+    /* =========================================================
+       BLOCK C — ADMIN UID (sin contraseña)
+       ========================================================= */
     const ADMIN_UIDS = ["1avKVpGxCAMO1FU734Md4B3b8aH3"];
-
     let isAdmin = false;
-    let currentUser = null;
 
+    function computeIsAdmin(user) {
+      return !!user && !user.isAnonymous && ADMIN_UIDS.includes(user.uid);
+    }
+
+    /* =========================================================
+       BLOCK D — ESTADO GLOBAL
+       ========================================================= */
+    let currentUser = null;
+    let listenersStarted = false;
+
+    // mapa
     let map = null;
-    const DEFAULT_CENTER = { lat: 8.7520, lng: -75.8890 };
+    const DEFAULT_CENTER = { lat: 8.7520, lng: -75.8890 }; // Montería (margen izquierda/oeste)
     const DEFAULT_ZOOM = 14;
 
+    // pin seleccionado
     let selectedMarker = null;
+
+    // eventos
     let events = [];
     let eventMarkers = [];
     let heatLayer = null;
 
-    let charts = {};
+    // capas
     let layersMeta = [];
+    let leafletLayers = {}; // id->layer
 
-    // ✅ listeners after auth
-    let listenersStarted = false;
+    // charts
+    let charts = {};
 
-    document.addEventListener('DOMContentLoaded', function () {
+    /* =========================================================
+       BLOCK E — INIT
+       ========================================================= */
+    document.addEventListener('DOMContentLoaded', () => {
       setDefaultDates();
       initializeMap();
       initCharts();
+      setupEventListeners();
       checkAuthStatus();
     });
 
     function setDefaultDates() {
       const now = new Date();
       const dtLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-      const elDT = document.getElementById('eventDateTime');
-      if (elDT) elDT.value = dtLocal;
+      const el = document.getElementById('eventDateTime');
+      if (el) el.value = dtLocal;
     }
 
+    /* =========================================================
+       BLOCK F — UI helpers
+       ========================================================= */
     function showAlert(message, type='info') {
       const alertEl = document.getElementById('alert');
       alertEl.textContent = message;
@@ -390,8 +475,21 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(tabName)?.classList.add('active');
       btnEl?.classList.add('active');
-      if (tabName === 'dashboard') { updateCharts(); updateAnalysis(); }
+
+      if (tabName === 'dashboard') {
+        updateCharts();
+        updateAnalysis();
+      }
       if (tabName === 'mapa') setTimeout(() => map && map.invalidateSize(), 150);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
     }
 
     function updateUserUI(user) {
@@ -400,13 +498,10 @@
       el.textContent = user?.isAnonymous ? 'Visitante (público)' : (user?.displayName || user?.email || 'Usuario');
     }
 
-    function computeIsAdmin(user) {
-      return !!user && !user.isAnonymous && ADMIN_UIDS.includes(user.uid);
-    }
-
     function refreshAdminUI() {
       const status = document.getElementById('adminStatus');
       const panel  = document.getElementById('adminPanel');
+
       isAdmin = computeIsAdmin(auth.currentUser);
 
       if (!status || !panel) return;
@@ -416,15 +511,20 @@
         panel.classList.add('hidden');
         return;
       }
+
       if (!isAdmin) {
-        status.innerHTML = `⛔ Sin permisos de admin. UID: <code>${auth.currentUser.uid}</code>`;
+        status.innerHTML = `⛔ Sin permisos de admin. UID: <code>${escapeHtml(auth.currentUser.uid)}</code>`;
         panel.classList.add('hidden');
         return;
       }
-      status.innerHTML = `✅ Admin habilitado.`;
+
+      status.innerHTML = `✅ Administrador habilitado.`;
       panel.classList.remove('hidden');
     }
 
+    /* =========================================================
+       BLOCK G — AUTH
+       ========================================================= */
     async function ensureAnonymous() {
       if (auth.currentUser) return auth.currentUser;
       await auth.signInAnonymously();
@@ -434,10 +534,12 @@
     function checkAuthStatus() {
       auth.onAuthStateChanged(async (user) => {
         if (!user) {
-          try { user = await ensureAnonymous(); }
-          catch (e) {
+          try {
+            user = await ensureAnonymous();
+          } catch (e) {
             document.getElementById('loginPage').classList.remove('hidden');
             document.getElementById('mainApp').classList.add('hidden');
+            showAlert('Activa Anonymous Auth en Firebase.', 'error');
             return;
           }
         }
@@ -449,7 +551,6 @@
         updateUserUI(user);
         refreshAdminUI();
 
-        // ✅ start listeners only once
         startRealtimeListeners();
       });
     }
@@ -470,6 +571,9 @@
       auth.signOut().then(() => location.reload());
     }
 
+    /* =========================================================
+       BLOCK H — REALTIME LISTENERS (DESPUÉS DE AUTH)
+       ========================================================= */
     function startRealtimeListeners() {
       if (listenersStarted) return;
       listenersStarted = true;
@@ -489,6 +593,7 @@
             snap.forEach(doc => {
               const d = doc.data();
               if (d.estado === 'eliminado') return;
+
               const fecha = d.fecha_evento?.toDate ? d.fecha_evento.toDate() : (d.fecha_evento || new Date());
               events.push({
                 id: doc.id,
@@ -497,16 +602,19 @@
                 fecha_evento_js: fecha
               });
             });
+
             updateStats();
+            renderEventsList();
             drawEventMarkers();
             updateHeatmap();
-            renderEventsList();
+
             if (document.getElementById('dashboard')?.classList.contains('active')) {
-              updateCharts(); updateAnalysis();
+              updateCharts();
+              updateAnalysis();
             }
           },
           (err) => {
-            console.error(err);
+            console.error('EVENTOS listener error:', err);
             showAlert(`❌ No puedo leer EVENTOS: ${err.code || ''} ${err.message || err}`, 'error');
           }
         );
@@ -521,12 +629,16 @@
             snap.forEach(doc => {
               const d = doc.data();
               if (d.enabled === false) return;
+              // Solo capas que tienen URL válida
               if (!d.url || String(d.url).trim() === '') return;
               layersMeta.push({ id: doc.id, ...d });
             });
             renderLayersUI();
           },
-          (err) => showAlert(`❌ No puedo leer CAPAS: ${err.code || ''} ${err.message || err}`, 'error')
+          (err) => {
+            console.error('CAPAS listener error:', err);
+            showAlert(`❌ No puedo leer CAPAS: ${err.code || ''} ${err.message || err}`, 'error');
+          }
         );
     }
 
@@ -535,18 +647,24 @@
         .onSnapshot(
           (doc) => {
             const d = doc.exists ? doc.data() : {};
-            const el = document.getElementById('boardPublic');
-            if (el) el.innerHTML = `<p><b>🗑️ Basura:</b> ${escapeHtml(d.trashDays || 'Sin info')}</p>${d.notes ? `<p class="muted" style="margin-top:8px;">${escapeHtml(d.notes)}</p>` : ''}`;
+            renderBoardPublic(d);
 
+            // precarga admin
             const t = document.getElementById('trashDays');
             const n = document.getElementById('boardNotes');
             if (t) t.value = d.trashDays || '';
             if (n) n.value = d.notes || '';
           },
-          (err) => showAlert(`❌ No puedo leer TABLERO: ${err.code || ''} ${err.message || err}`, 'error')
+          (err) => {
+            console.error('TABLERO listener error:', err);
+            showAlert(`❌ No puedo leer TABLERO: ${err.code || ''} ${err.message || err}`, 'error');
+          }
         );
     }
 
+    /* =========================================================
+       BLOCK I — MAPA + PIN
+       ========================================================= */
     function initializeMap() {
       map = L.map('map').setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], DEFAULT_ZOOM);
 
@@ -569,26 +687,21 @@
       showAlert('Haz clic en el mapa para colocar el PIN.', 'info');
     }
 
-    function toggleOtherTypeUI() {
-      const type = document.getElementById('eventType').value;
-      const g = document.getElementById('otherTypeGroup');
-      if (!g) return;
-      if (type === 'otro') g.classList.remove('hidden');
-      else g.classList.add('hidden');
-    }
-
     function useMyLocation() {
       if (!navigator.geolocation) return showAlert('Geolocalización no disponible.', 'error');
+      showAlert('Obteniendo ubicación…', 'info');
+
       navigator.geolocation.getCurrentPosition(pos => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         map.setView([lat, lng], 16);
         setSelectedLocation(lat, lng, true);
-      }, err => showAlert(err.message, 'error'), { enableHighAccuracy:true, timeout:10000 });
+      }, err => showAlert('No pude obtener ubicación: ' + err.message, 'error'), { enableHighAccuracy:true, timeout:10000 });
     }
 
     function setSelectedLocation(lat, lng, jumpToRegister) {
       if (!selectedMarker) {
         selectedMarker = L.marker([lat, lng], { draggable:true }).addTo(map);
+        selectedMarker.bindPopup('📌 Ubicación del evento (arrastra para ajustar)').openPopup();
         selectedMarker.on('dragend', () => {
           const p = selectedMarker.getLatLng();
           updateLocationFields(p.lat, p.lng);
@@ -596,8 +709,12 @@
       } else {
         selectedMarker.setLatLng([lat, lng]);
       }
+
       updateLocationFields(lat, lng);
-      if (jumpToRegister) switchTab('registro', document.querySelector('.tab-btn[data-tab="registro"]'));
+
+      if (jumpToRegister) {
+        switchTab('registro', document.querySelector('.tab-btn[data-tab="registro"]'));
+      }
     }
 
     function updateLocationFields(lat, lng) {
@@ -608,6 +725,17 @@
       document.getElementById('selectedLat').textContent = lat.toFixed(5);
       document.getElementById('selectedLng').textContent = lng.toFixed(5);
       document.getElementById('selectedGeohash').textContent = ghEncode(lat, lng, 6);
+    }
+
+    /* =========================================================
+       BLOCK J — EVENTOS
+       ========================================================= */
+    function toggleOtherTypeUI() {
+      const type = document.getElementById('eventType').value;
+      const g = document.getElementById('otherTypeGroup');
+      if (!g) return;
+      if (type === 'otro') g.classList.remove('hidden');
+      else g.classList.add('hidden');
     }
 
     async function registerEvent() {
@@ -622,11 +750,14 @@
 
         const lat = parseFloat(document.getElementById('eventLat').value);
         const lng = parseFloat(document.getElementById('eventLng').value);
+        const photoFile = document.getElementById('eventPhoto').files[0];
 
         if (!type) return showAlert('Selecciona tipo.', 'error');
         if (type === 'otro' && !otherName) return showAlert('Escribe qué evento es.', 'error');
         if (isNaN(lat) || isNaN(lng)) return showAlert('Pon un PIN en el mapa.', 'error');
         if (!desc || !dt) return showAlert('Completa descripción y fecha.', 'error');
+
+        const photoUrl = photoFile ? await uploadEventPhoto(photoFile) : '';
 
         await db.collection('eventos').add({
           tipo_evento: type,
@@ -634,6 +765,7 @@
           ubicacion: new firebase.firestore.GeoPoint(lat, lng),
           geohash: ghEncode(lat, lng, 6),
           descripcion: desc,
+          foto_url: photoUrl,
           fecha_evento: dt,
           created_by: user.uid,
           created_at: firebase.firestore.FieldValue.serverTimestamp(),
@@ -641,10 +773,70 @@
         });
 
         showAlert('✅ Evento registrado', 'success');
+        // limpiar
+        document.getElementById('eventType').value = '';
+        document.getElementById('eventDescription').value = '';
+        document.getElementById('eventPhoto').value = '';
+        document.getElementById('fileName').textContent = '';
+        document.getElementById('otherTypeGroup').classList.add('hidden');
+        document.getElementById('eventOtherName').value = '';
+
         switchTab('mapa', document.querySelector('.tab-btn[data-tab="mapa"]'));
       } catch (e) {
         showAlert('Error al registrar: ' + e.message, 'error');
       }
+    }
+
+    function uploadEventPhoto(file) {
+      return new Promise((resolve, reject) => {
+        const uid = auth.currentUser?.uid || 'anon';
+        const path = `eventos-fotos/${uid}/${Date.now()}_${file.name}`;
+        const ref = storage.ref(path);
+        ref.put(file).then(() => ref.getDownloadURL()).then(resolve).catch(reject);
+      });
+    }
+
+    function typeLabel(ev) {
+      if (ev.tipo_evento === 'otro') return (ev.tipo_otro || 'OTRO');
+      return String(ev.tipo_evento || '').toUpperCase();
+    }
+
+    function updateStats() {
+      const count = (k) => events.filter(e => e.tipo_evento === k).length;
+      document.getElementById('countRobos').textContent = count('robo');
+      document.getElementById('countInundaciones').textContent = count('inundación');
+      document.getElementById('countBasura').textContent = count('basura');
+      document.getElementById('countManhole').textContent = count('manhole');
+      document.getElementById('countOtros').textContent = count('otro');
+    }
+
+    function renderEventsList() {
+      const list = document.getElementById('eventsList');
+      if (!list) return;
+
+      if (!events.length) {
+        list.innerHTML = '<p class="muted">No hay eventos.</p>';
+        return;
+      }
+
+      list.innerHTML = events.map(ev => {
+        const dt = new Date(ev.fecha_evento_js || Date.now());
+        const t = ev.tipo_evento || 'otro';
+        return `
+          <div class="event-item ${escapeHtml(t)}">
+            <div class="event-header">
+              <div><span class="event-type ${escapeHtml(t)}">${escapeHtml(typeLabel(ev))}</span></div>
+              <span class="event-time">${dt.toLocaleString()}</span>
+            </div>
+            <div class="event-description">${escapeHtml(ev.descripcion || '')}</div>
+            <div class="event-meta">
+              ${ev.ubicacion ? `<span>📍 ${Number(ev.ubicacion.latitude).toFixed(4)}, ${Number(ev.ubicacion.longitude).toFixed(4)}</span>` : ''}
+              <span>🔗 ${escapeHtml(ev.geohash || '')}</span>
+              <span>${ev.foto_url ? '📸 Con foto' : '📝 Sin foto'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function drawEventMarkers() {
@@ -657,8 +849,18 @@
       events.forEach(ev => {
         if (!ev.ubicacion) return;
         const marker = L.circleMarker([ev.ubicacion.latitude, ev.ubicacion.longitude], {
-          radius: 8, color: colors[ev.tipo_evento] || '#667eea', opacity:0.95, weight:2
+          radius: 8,
+          color: colors[ev.tipo_evento] || '#667eea',
+          opacity: 0.95,
+          weight: 2
         }).addTo(map);
+
+        marker.bindPopup(`
+          <strong>${escapeHtml(typeLabel(ev))}</strong><br>
+          ${escapeHtml(ev.descripcion || '')}<br>
+          <small>${new Date(ev.fecha_evento_js || Date.now()).toLocaleString()}</small>
+        `);
+
         eventMarkers.push(marker);
       });
     }
@@ -670,24 +872,189 @@
       heatLayer = L.heatLayer(heatData, { radius: 28, blur: 16, maxZoom: 17 }).addTo(map);
     }
 
-    function renderEventsList() {
-      const list = document.getElementById('eventsList');
-      if (!list) return;
-      if (!events.length) return list.innerHTML = '<p class="muted">No hay eventos.</p>';
-      list.innerHTML = events.slice(0,100).map(e => `<div class="muted" style="padding:8px 0; border-bottom:1px solid #eee;">
-        <b>${escapeHtml(e.tipo_evento || '')}</b> — ${escapeHtml(e.descripcion || '')}
-      </div>`).join('');
+    /* =========================================================
+       BLOCK K — CAPAS (LISTA + TOGGLE)
+       ========================================================= */
+    function renderLayersUI() {
+      const el = document.getElementById('layersUI');
+      if (!el) return;
+
+      if (!layersMeta.length) {
+        el.innerHTML = '<p class="muted">No hay capas publicadas.</p>';
+        return;
+      }
+
+      el.innerHTML = layersMeta.map(m => {
+        const checked = leafletLayers[m.id] ? 'checked' : '';
+        const badge = (m.category === 'limites') ? `<span class="pill" style="margin-left:8px;">Piloto</span>` : '';
+
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border:1px solid #eee; border-radius:12px; margin-bottom:10px;">
+            <div style="min-width:0;">
+              <div style="font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${escapeHtml(m.name || 'Capa')}${badge}
+              </div>
+              <div class="muted tiny">${escapeHtml(m.category || '')}</div>
+              <div class="tiny" style="margin-top:6px;">
+                <a href="${m.url}" target="_blank" style="color:#667eea; font-weight:1000;">Abrir ZIP</a>
+              </div>
+            </div>
+
+            <label style="display:flex; gap:8px; align-items:center; font-weight:1000;">
+              <input type="checkbox" ${checked} onchange="toggleLayerZip('${m.id}', this.checked)">
+              <span>Ver</span>
+            </label>
+          </div>
+        `;
+      }).join('');
     }
 
-    function updateStats() {
-      const count = (k) => events.filter(e => e.tipo_evento === k).length;
-      document.getElementById('countRobos').textContent = count('robo');
-      document.getElementById('countInundaciones').textContent = count('inundación');
-      document.getElementById('countBasura').textContent = count('basura');
-      document.getElementById('countManhole').textContent = count('manhole');
-      document.getElementById('countOtros').textContent = count('otro');
+    function getLayerStyle(meta) {
+      if (meta.category === 'limites') {
+        return { color:'#ff0000', weight:4, fillOpacity:0, opacity:1 };
+      }
+      const styles = {
+        postes: { color:'#6c5ce7', weight:2, fillOpacity:0.15, opacity:0.9 },
+        canales: { color:'#0984e3', weight:3, fillOpacity:0.10, opacity:0.9 },
+        resaltos: { color:'#d63031', weight:2, fillOpacity:0.15, opacity:0.9 },
+        comercio: { color:'#e17055', weight:2, fillOpacity:0.15, opacity:0.9 },
+        direcciones: { color:'#2d3436', weight:2, fillOpacity:0.10, opacity:0.9 },
+        arboles: { color:'#00b894', weight:2, fillOpacity:0.15, opacity:0.9 },
+        calles: { color:'#636e72', weight:3, fillOpacity:0.00, opacity:0.9 },
+        otro: { color:'#667eea', weight:2, fillOpacity:0.15, opacity:0.9 }
+      };
+      return styles[meta.category] || styles.otro;
     }
 
+    async function toggleLayerZip(layerId, on) {
+      const meta = layersMeta.find(x => x.id === layerId);
+      if (!meta) return;
+
+      if (!on) {
+        if (leafletLayers[layerId]) {
+          map.removeLayer(leafletLayers[layerId]);
+          delete leafletLayers[layerId];
+        }
+        return;
+      }
+
+      try {
+        showAlert('Cargando capa…', 'info');
+
+        const res = await fetch(meta.url);
+        if (!res.ok) throw new Error(`No pude descargar ZIP (HTTP ${res.status})`);
+        const ab = await res.arrayBuffer();
+
+        const geojsonRaw = await shp(ab);
+        const geojson = Array.isArray(geojsonRaw)
+          ? { type:'FeatureCollection', features: geojsonRaw.flatMap(g => (g && g.features) ? g.features : []) }
+          : geojsonRaw;
+
+        const style = getLayerStyle(meta);
+
+        const layer = L.geoJSON(geojson, {
+          style: () => style,
+          pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6 }),
+          onEachFeature: (f, lyr) => {
+            const props = f.properties || {};
+            const html = Object.entries(props).slice(0, 30)
+              .map(([k,v]) => `<b>${escapeHtml(k)}</b>: ${escapeHtml(String(v))}`).join('<br>');
+            lyr.bindPopup(`<div style="max-width:260px;">${html}</div>`);
+          }
+        }).addTo(map);
+
+        leafletLayers[layerId] = layer;
+
+        try {
+          const b = layer.getBounds();
+          if (b && b.isValid()) map.fitBounds(b.pad(0.08));
+        } catch {}
+
+        showAlert('✅ Capa activada: ' + (meta.name || 'Capa'), 'success');
+      } catch (e) {
+        console.error('toggleLayerZip error:', e);
+        showAlert('No pude cargar la capa: ' + (e.message || e), 'error');
+        // desmarcar checkbox si falló
+        renderLayersUI();
+      }
+    }
+
+    /* =========================================================
+       BLOCK L — ADMIN: subir capa
+       ========================================================= */
+    async function adminUploadLayerZip() {
+      try {
+        if (!isAdmin) return showAlert('No eres admin.', 'error');
+
+        const name = (document.getElementById('layerName').value || '').trim();
+        const category = document.getElementById('layerCategory').value;
+        const file = document.getElementById('layerZip').files[0];
+        if (!name || !file) return showAlert('Falta nombre o ZIP.', 'error');
+
+        // validar ZIP shapefile
+        const abLocal = await file.arrayBuffer();
+        try { await shp(abLocal); }
+        catch { return showAlert('ZIP inválido: .shp/.shx/.dbf/.prj en raíz.', 'error'); }
+
+        showAlert('Subiendo ZIP a Storage…', 'info');
+        const path = `capas/${Date.now()}_${file.name}`;
+        const ref = storage.ref(path);
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+
+        await db.collection('capas').add({
+          name, category, enabled:true, url,
+          created_by: auth.currentUser.uid,
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        showAlert('✅ Capa subida. Ve a “Capas”.', 'success');
+        document.getElementById('layerName').value = '';
+        document.getElementById('layerZip').value = '';
+      } catch (e) {
+        console.error('UPLOAD ERROR:', e);
+        showAlert(`Error subiendo capa: ${e.code || ''} ${e.message || e}`, 'error');
+      }
+    }
+
+    /* =========================================================
+       BLOCK M — TABLERO
+       ========================================================= */
+    function renderBoardPublic(d) {
+      const el = document.getElementById('boardPublic');
+      if (!el) return;
+
+      const trashDays = d.trashDays || 'Sin información';
+      const notes = d.notes || '';
+
+      el.innerHTML = `
+        <p><b>🗑️ Basura:</b> ${escapeHtml(trashDays)}</p>
+        ${notes ? `<p style="margin-top:8px; color:#555;">${escapeHtml(notes)}</p>` : ''}
+      `;
+    }
+
+    async function adminSaveBoard() {
+      try {
+        if (!isAdmin) return showAlert('No eres admin.', 'error');
+
+        const trashDays = (document.getElementById('trashDays').value || '').trim();
+        const notes = (document.getElementById('boardNotes').value || '').trim();
+
+        await db.collection('config').doc('tablero').set({
+          trashDays, notes,
+          updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+          updated_by: auth.currentUser.uid
+        }, { merge:true });
+
+        showAlert('✅ Tablero guardado', 'success');
+      } catch (e) {
+        showAlert('Error guardando tablero: ' + e.message, 'error');
+      }
+    }
+
+    /* =========================================================
+       BLOCK N — DASHBOARD (charts)
+       ========================================================= */
     function initCharts() {
       const ctx1 = document.getElementById('chartEventTypes')?.getContext('2d');
       const ctx2 = document.getElementById('chartEventsByDay')?.getContext('2d');
@@ -695,8 +1062,10 @@
 
       if (ctx1) charts.eventTypes = new Chart(ctx1, {
         type: 'doughnut',
-        data: { labels: ['Robos','Inundaciones','Basura','Manholes','Otros'],
-          datasets: [{ data: [0,0,0,0,0], backgroundColor: ['#ff6b6b','#4ecdc4','#ffd700','#9b59b6','#6c757d'] }] }
+        data: {
+          labels: ['Robos','Inundaciones','Basura','Manholes','Otros'],
+          datasets: [{ data: [0,0,0,0,0], backgroundColor: ['#ff6b6b','#4ecdc4','#ffd700','#9b59b6','#6c757d'] }]
+        }
       });
 
       if (ctx2) charts.eventsByDay = new Chart(ctx2, {
@@ -716,6 +1085,19 @@
         charts.eventTypes.data.datasets[0].data = [c('robo'), c('inundación'), c('basura'), c('manhole'), c('otro')];
         charts.eventTypes.update();
       }
+
+      if (charts.eventsByDay) {
+        const days = {};
+        events.forEach(e => {
+          const d = new Date(e.fecha_evento_js || Date.now()).toLocaleDateString();
+          days[d] = (days[d] || 0) + 1;
+        });
+        const sorted = Object.entries(days).slice(-7);
+        charts.eventsByDay.data.labels = sorted.map(x => x[0]);
+        charts.eventsByDay.data.datasets[0].data = sorted.map(x => x[1]);
+        charts.eventsByDay.update();
+      }
+
       if (charts.users) {
         charts.users.data.datasets[0].data = [new Set(events.map(e => e.created_by)).size];
         charts.users.update();
@@ -723,60 +1105,25 @@
     }
 
     function updateAnalysis() {
-      document.getElementById('iaAnalysis').innerHTML = `<p class="muted">Eventos totales: <b>${events.length}</b></p>`;
-    }
-
-    async function adminUploadLayerZip() {
-      try {
-        if (!isAdmin) return showAlert('No eres admin.', 'error');
-
-        const name = (document.getElementById('layerName').value || '').trim();
-        const category = document.getElementById('layerCategory').value;
-        const file = document.getElementById('layerZip').files[0];
-        if (!name || !file) return showAlert('Falta nombre o ZIP.', 'error');
-
-        const ab = await file.arrayBuffer();
-        try { await shp(ab); } catch { return showAlert('ZIP inválido (shp/shx/dbf/prj en raíz).', 'error'); }
-
-        showAlert('Subiendo ZIP a Storage...', 'info');
-        const path = `capas/${Date.now()}_${file.name}`;
-        const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-
-        await db.collection('capas').add({
-          name, category, enabled:true, url,
-          created_by: auth.currentUser.uid,
-          created_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        showAlert('✅ Capa subida. Ve a “Capas”.', 'success');
-      } catch (e) {
-        showAlert(`Error subiendo capa: ${e.code || ''} ${e.message || e}`, 'error');
-      }
-    }
-
-    function renderLayersUI() {
-      const el = document.getElementById('layersUI');
+      const el = document.getElementById('iaAnalysis');
       if (!el) return;
-      if (!layersMeta.length) return el.innerHTML = '<p class="muted">No hay capas publicadas.</p>';
-      el.innerHTML = layersMeta.map(m => `<div class="muted" style="padding:8px 0; border-bottom:1px solid #eee;">
-        <b>${escapeHtml(m.name || 'Capa')}</b> — ${escapeHtml(m.category || '')}
-      </div>`).join('');
+      el.innerHTML = `<p class="muted">Eventos totales: <b>${events.length}</b></p>`;
     }
 
-    async function adminSaveBoard() {
-      if (!isAdmin) return showAlert('No eres admin.', 'error');
-      const trashDays = (document.getElementById('trashDays').value || '').trim();
-      const notes = (document.getElementById('boardNotes').value || '').trim();
-      await db.collection('config').doc('tablero').set({ trashDays, notes, updated_at: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
-      showAlert('✅ Tablero guardado', 'success');
-    }
+    /* =========================================================
+       BLOCK O — LISTENERS (inputs)
+       ========================================================= */
+    function setupEventListeners() {
+      document.getElementById('eventPhoto')?.addEventListener('change', (e) => {
+        document.getElementById('fileName').textContent = e.target.files[0]?.name || '';
+      });
 
-    function escapeHtml(str) {
-      return String(str || '')
-        .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-        .replaceAll('"','&quot;').replaceAll("'","&#039;");
+      document.getElementById('searchEvents')?.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll('.event-item').forEach(item => {
+          item.style.display = item.textContent.toLowerCase().includes(q) ? 'block' : 'none';
+        });
+      });
     }
   </script>
 </body>
