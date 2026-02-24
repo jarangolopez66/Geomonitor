@@ -1,36 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <!-- =========================================================
-       BLOCK 00 — META + TÍTULO
-       ========================================================= -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoMonitor Vallejo</title>
 
-  <!-- =========================================================
-       BLOCK 01 — LIBRERÍAS (Leaflet + Heat + Chart)
-       ========================================================= -->
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/1.0.4/leaflet-heat.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/1.0.4/leaflet-heat.js"></script>
+
+  <!-- Chart -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
   <!-- shpjs (ZIP shapefile -> GeoJSON) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shpjs/6.1.0/shp.min.js"></script>
 
-  <!-- =========================================================
-       BLOCK 02 — FIREBASE (COMPAT)
-       ========================================================= -->
+  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth-compat.js"></script>
 
-  <!-- =========================================================
-       BLOCK 03 — ESTILOS
-       ========================================================= -->
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu',sans-serif; background:#f5f5f5; color:#333; }
@@ -118,7 +110,7 @@
 </head>
 
 <body>
-  <!-- LOGIN FALLBACK (si falla modo público) -->
+  <!-- Login fallback -->
   <div id="loginPage" class="hidden" style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
     <div style="background:#fff; padding:2.3rem; border-radius:14px; width:min(520px,92vw); box-shadow:0 10px 40px rgba(0,0,0,.25); text-align:center;">
       <h1 style="color:#667eea; margin-bottom:.5rem;">🗺️ GeoMonitor</h1>
@@ -261,7 +253,7 @@
       <div id="capas" class="tab-content">
         <div class="card">
           <h3>🧭 Capas del barrio</h3>
-          <p class="muted tiny" style="margin-bottom:.75rem;">Aquí aparecen automáticamente las capas subidas por el admin. Puedes prender/apagar.</p>
+          <p class="muted tiny" style="margin-bottom:.75rem;">Las capas se listan automáticamente. Puedes prender/apagar.</p>
           <div id="layersUI"><p class="muted">Cargando capas...</p></div>
         </div>
       </div>
@@ -352,14 +344,9 @@
 
   <script>
     /* =========================================================
-       BLOCK A — GEOHASH (fallback local)
+       GEOHASH (fallback local)
        ========================================================= */
     function ghEncode(lat, lon, precision = 6) {
-      // si existiera alguna librería (por si luego la agregas), úsala:
-      if (window.geohash?.encode) return window.geohash.encode(lat, lon, precision);
-      if (window.Geohash?.encode) return window.Geohash.encode(lat, lon, precision);
-
-      // fallback local
       const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
       let idx = 0, bit = 0, evenBit = true;
       let out = '';
@@ -389,7 +376,7 @@
     }
 
     /* =========================================================
-       BLOCK B — FIREBASE INIT
+       FIREBASE INIT
        ========================================================= */
     const firebaseConfig = {
       apiKey: "AIzaSyAWouuK0aTWCJxz3GbzVbhjudkI_2BcCZM",
@@ -407,7 +394,7 @@
     const auth = firebase.auth();
 
     /* =========================================================
-       BLOCK C — ADMIN UID (sin contraseña)
+       ADMIN UID (sin contraseña)
        ========================================================= */
     const ADMIN_UIDS = ["1avKVpGxCAMO1FU734Md4B3b8aH3"];
     let isAdmin = false;
@@ -417,14 +404,14 @@
     }
 
     /* =========================================================
-       BLOCK D — ESTADO GLOBAL
+       ESTADO GLOBAL
        ========================================================= */
     let currentUser = null;
     let listenersStarted = false;
 
     // mapa
     let map = null;
-    const DEFAULT_CENTER = { lat: 8.7520, lng: -75.8890 }; // Montería (margen izquierda/oeste)
+    const DEFAULT_CENTER = { lat: 8.7520, lng: -75.8890 };
     const DEFAULT_ZOOM = 14;
 
     // pin seleccionado
@@ -437,14 +424,11 @@
 
     // capas
     let layersMeta = [];
-    let leafletLayers = {}; // id->layer
+    let leafletLayers = {}; // id -> L.geoJSON
 
     // charts
     let charts = {};
 
-    /* =========================================================
-       BLOCK E — INIT
-       ========================================================= */
     document.addEventListener('DOMContentLoaded', () => {
       setDefaultDates();
       initializeMap();
@@ -460,9 +444,6 @@
       if (el) el.value = dtLocal;
     }
 
-    /* =========================================================
-       BLOCK F — UI helpers
-       ========================================================= */
     function showAlert(message, type='info') {
       const alertEl = document.getElementById('alert');
       alertEl.textContent = message;
@@ -523,7 +504,7 @@
     }
 
     /* =========================================================
-       BLOCK G — AUTH
+       AUTH
        ========================================================= */
     async function ensureAnonymous() {
       if (auth.currentUser) return auth.currentUser;
@@ -572,7 +553,7 @@
     }
 
     /* =========================================================
-       BLOCK H — REALTIME LISTENERS (DESPUÉS DE AUTH)
+       REALTIME LISTENERS
        ========================================================= */
     function startRealtimeListeners() {
       if (listenersStarted) return;
@@ -621,6 +602,7 @@
     }
 
     function startLayersListener() {
+      // Nota: aquí solo listamos capas que ya tienen url
       db.collection('capas')
         .orderBy('created_at', 'desc')
         .onSnapshot(
@@ -629,7 +611,6 @@
             snap.forEach(doc => {
               const d = doc.data();
               if (d.enabled === false) return;
-              // Solo capas que tienen URL válida
               if (!d.url || String(d.url).trim() === '') return;
               layersMeta.push({ id: doc.id, ...d });
             });
@@ -637,6 +618,8 @@
           },
           (err) => {
             console.error('CAPAS listener error:', err);
+            const el = document.getElementById('layersUI');
+            if (el) el.innerHTML = `<p class="muted" style="color:#b00020;font-weight:900;">Error leyendo capas: ${escapeHtml(err.message || String(err))}</p>`;
             showAlert(`❌ No puedo leer CAPAS: ${err.code || ''} ${err.message || err}`, 'error');
           }
         );
@@ -649,7 +632,6 @@
             const d = doc.exists ? doc.data() : {};
             renderBoardPublic(d);
 
-            // precarga admin
             const t = document.getElementById('trashDays');
             const n = document.getElementById('boardNotes');
             if (t) t.value = d.trashDays || '';
@@ -663,7 +645,7 @@
     }
 
     /* =========================================================
-       BLOCK I — MAPA + PIN
+       MAPA + PIN
        ========================================================= */
     function initializeMap() {
       map = L.map('map').setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], DEFAULT_ZOOM);
@@ -728,7 +710,7 @@
     }
 
     /* =========================================================
-       BLOCK J — EVENTOS
+       EVENTOS
        ========================================================= */
     function toggleOtherTypeUI() {
       const type = document.getElementById('eventType').value;
@@ -773,7 +755,7 @@
         });
 
         showAlert('✅ Evento registrado', 'success');
-        // limpiar
+
         document.getElementById('eventType').value = '';
         document.getElementById('eventDescription').value = '';
         document.getElementById('eventPhoto').value = '';
@@ -873,14 +855,18 @@
     }
 
     /* =========================================================
-       BLOCK K — CAPAS (LISTA + TOGGLE)
+       CAPAS (LISTA + TOGGLE) — MEJORAS pedidas
        ========================================================= */
     function renderLayersUI() {
       const el = document.getElementById('layersUI');
       if (!el) return;
 
       if (!layersMeta.length) {
-        el.innerHTML = '<p class="muted">No hay capas publicadas.</p>';
+        el.innerHTML = `
+          <p class="muted" style="font-weight:900;">
+            No hay capas publicadas todavía (colección <code>capas</code> vacía o sin <code>url</code>).
+          </p>
+        `;
         return;
       }
 
@@ -926,11 +912,23 @@
       return styles[meta.category] || styles.otro;
     }
 
+    // ✅ Mejoras pedidas:
+    // - normalizar boolean/string
+    // - errores más explícitos (HTTP status)
+    // - centrar/zoom a la capa al activar
+    // - asegurar estado consistente en leafletLayers y UI
     async function toggleLayerZip(layerId, on) {
-      const meta = layersMeta.find(x => x.id === layerId);
-      if (!meta) return;
+      // normalizar on: puede venir true/false, "true"/"false", 1/0
+      const onNorm = (on === true || on === 'true' || on === 1 || on === '1');
 
-      if (!on) {
+      const meta = layersMeta.find(x => x.id === layerId);
+      if (!meta) {
+        showAlert('No encontré metadata de la capa (ID inválido).', 'error');
+        return;
+      }
+
+      if (!onNorm) {
+        // apagar
         if (leafletLayers[layerId]) {
           map.removeLayer(leafletLayers[layerId]);
           delete leafletLayers[layerId];
@@ -938,18 +936,24 @@
         return;
       }
 
+      // encender
       try {
-        showAlert('Cargando capa…', 'info');
+        showAlert(`Cargando capa: ${meta.name || 'Capa'}…`, 'info');
 
-        const res = await fetch(meta.url);
-        if (!res.ok) throw new Error(`No pude descargar ZIP (HTTP ${res.status})`);
+        // 1) Descargar ZIP
+        const res = await fetch(meta.url, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`No pude descargar ZIP. HTTP ${res.status} (${res.statusText || 'sin texto'})`);
+        }
         const ab = await res.arrayBuffer();
 
+        // 2) Convertir ZIP->GeoJSON
         const geojsonRaw = await shp(ab);
         const geojson = Array.isArray(geojsonRaw)
           ? { type:'FeatureCollection', features: geojsonRaw.flatMap(g => (g && g.features) ? g.features : []) }
           : geojsonRaw;
 
+        // 3) Crear layer Leaflet
         const style = getLayerStyle(meta);
 
         const layer = L.geoJSON(geojson, {
@@ -961,26 +965,37 @@
               .map(([k,v]) => `<b>${escapeHtml(k)}</b>: ${escapeHtml(String(v))}`).join('<br>');
             lyr.bindPopup(`<div style="max-width:260px;">${html}</div>`);
           }
-        }).addTo(map);
+        });
 
+        // Si ya existía, bórrala para no duplicar
+        if (leafletLayers[layerId]) {
+          map.removeLayer(leafletLayers[layerId]);
+          delete leafletLayers[layerId];
+        }
+
+        // 4) Agregar al mapa y guardar estado
+        layer.addTo(map);
         leafletLayers[layerId] = layer;
 
+        // 5) Centrar a la capa
         try {
           const b = layer.getBounds();
           if (b && b.isValid()) map.fitBounds(b.pad(0.08));
         } catch {}
 
-        showAlert('✅ Capa activada: ' + (meta.name || 'Capa'), 'success');
+        showAlert(`✅ Capa activada: ${meta.name || 'Capa'}`, 'success');
       } catch (e) {
         console.error('toggleLayerZip error:', e);
         showAlert('No pude cargar la capa: ' + (e.message || e), 'error');
-        // desmarcar checkbox si falló
+
+        // forzar UI consistente: desmarcar (re-render)
+        // (mantiene lógica general, solo robustez)
         renderLayersUI();
       }
     }
 
     /* =========================================================
-       BLOCK L — ADMIN: subir capa
+       ADMIN: subir capa
        ========================================================= */
     async function adminUploadLayerZip() {
       try {
@@ -994,7 +1009,7 @@
         // validar ZIP shapefile
         const abLocal = await file.arrayBuffer();
         try { await shp(abLocal); }
-        catch { return showAlert('ZIP inválido: .shp/.shx/.dbf/.prj en raíz.', 'error'); }
+        catch { return showAlert('ZIP inválido: .shp/.shx/.dbf/.prj en la raíz.', 'error'); }
 
         showAlert('Subiendo ZIP a Storage…', 'info');
         const path = `capas/${Date.now()}_${file.name}`;
@@ -1018,7 +1033,7 @@
     }
 
     /* =========================================================
-       BLOCK M — TABLERO
+       TABLERO
        ========================================================= */
     function renderBoardPublic(d) {
       const el = document.getElementById('boardPublic');
@@ -1053,7 +1068,7 @@
     }
 
     /* =========================================================
-       BLOCK N — DASHBOARD (charts)
+       DASHBOARD
        ========================================================= */
     function initCharts() {
       const ctx1 = document.getElementById('chartEventTypes')?.getContext('2d');
@@ -1111,7 +1126,7 @@
     }
 
     /* =========================================================
-       BLOCK O — LISTENERS (inputs)
+       LISTENERS (inputs)
        ========================================================= */
     function setupEventListeners() {
       document.getElementById('eventPhoto')?.addEventListener('change', (e) => {
